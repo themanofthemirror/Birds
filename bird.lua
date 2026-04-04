@@ -1,14 +1,44 @@
+local espSize = 2
+local tracerThickness = 1.5
+local settingsOpen = false
+
 local colors = {
-     ["SCP-017"] = Color3.fromRGB(150, 0, 255),
-     ["SCP-049"] = Color3.fromRGB(0, 200, 0),
-     ["SCP-280"] = Color3.fromRGB(0, 100, 255),
-     ["SCP-457"] = Color3.fromRGB(255, 100, 0),
-     ["SCP-966"] = Color3.fromRGB(255, 255, 0),
-     ["SCP-058"] = Color3.fromRGB(255, 0, 0),
-     ["SCP-352-2"] = Color3.fromRGB(255, 0, 150),
+     ["SCP-1155"] = Color3.fromRGB(255, 165, 0),
+     ["SCP-017"]  = Color3.fromRGB(150, 0, 255),
+     ["SCP-049"]  = Color3.fromRGB(0, 200, 0),
+     ["SCP-280"]  = Color3.fromRGB(0, 100, 255),
+     ["SCP-457"]  = Color3.fromRGB(255, 100, 0),
+     ["SCP-966"]  = Color3.fromRGB(255, 255, 0),
+     ["SCP-058"]  = Color3.fromRGB(255, 0, 0),
+     ["SCP-352-2"]= Color3.fromRGB(255, 0, 150),
      ["SCP-1350"] = Color3.fromRGB(0, 255, 255),
-     ["SCP-173"] = Color3.fromRGB(200, 200, 200),
+     ["SCP-173"]  = Color3.fromRGB(200, 200, 200),
 }
+
+local instanceLocationNames = {
+     {pos = Vector3.new(67.4,   408.1, 502.8), name = "Original Position"},
+     {pos = Vector3.new(53.6,   406.7, 328.1), name = "S3L T Junction"},
+     {pos = Vector3.new(-19.4,  406.7, 42.2),  name = "SCP-173 CZ1"},
+     {pos = Vector3.new(-250.8, 406.3, 268.1), name = "S3R Entrance1"},
+     {pos = Vector3.new(-380.6, 406.7, 291.2), name = "SCP-280 CZ"},
+     {pos = Vector3.new(-259.2, 397.9, 385.9), name = "SCP-035"},
+     {pos = Vector3.new(79.8,   407.5, 60.3),  name = "SCP-173 CZ2"},
+     {pos = Vector3.new(-10.8,  407.5, 61.3),  name = "S3E"},
+     {pos = Vector3.new(-311.4, 422.9, 271.3), name = "S3R Entrance2"},
+     {pos = Vector3.new(-421.5, 408.1, 269.2), name = "S3R Entrance3"},
+     {pos = Vector3.new(-414.8, 408.1, 225.7), name = "S3M AUX"},
+     {pos = Vector3.new(-142.6, 407.1, 662.5), name = "CDCZ"},
+     {pos = Vector3.new(181.5,  407.5, 84.1),  name = "S3 Entrance2"},
+}
+
+local function getLocationName(position)
+     for _, entry in ipairs(instanceLocationNames) do
+          if (position - entry.pos).Magnitude < 10 then
+               return entry.name
+          end
+     end
+     return "Unknown Location"
+end
 
 local legendLabels = {}
 local tracerLines = {}
@@ -17,6 +47,7 @@ local tracersEnabled = true
 local active966Count = 0
 local failed966Count = 0
 
+local ws = game:GetService("Workspace")
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -47,13 +78,13 @@ end
 
 local function createTracer(part, color, legendKey)
      local outline = Drawing.new("Line")
-     outline.Thickness    = 3
+     outline.Thickness    = tracerThickness + 1.5
      outline.Color        = Color3.fromRGB(25, 25, 25)
      outline.Transparency = 0.75
      outline.Visible      = false
 
      local line = Drawing.new("Line")
-     line.Thickness    = 1.5
+     line.Thickness    = tracerThickness
      line.Color        = color
      line.Transparency = 0.75
      line.Visible      = false
@@ -76,19 +107,16 @@ RunService:BindToRenderStep("SCP_Tracers", 300, function()
 
      for _, t in pairs(tracerLines) do
           local part = t.Part
-
           if not part or not part.Parent then
                t.Line.Visible    = false
                t.Outline.Visible = false
           else
                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-
                if screenPos.Z > 0 and onScreen then
                     local to = Vector2.new(
                          math.clamp(screenPos.X, 0, vx),
                          math.clamp(screenPos.Y, 0, vy)
                     )
-
                     local distance = (Camera.CFrame.Position - part.Position).Magnitude
                     local transparency = math.clamp(1 - (distance / 200), 0.25, 0.75)
 
@@ -109,7 +137,6 @@ RunService:BindToRenderStep("SCP_Tracers", 300, function()
      end
 end)
 
-
 function addUi(part)
      if not part or part:FindFirstChild("Item-ESP") then return end
 
@@ -122,28 +149,31 @@ function addUi(part)
      end
 
      local partGui = Instance.new("BillboardGui", part)
-     partGui.Size = UDim2.new(1,0,1,0)
+     partGui.Size = UDim2.new(espSize, 0, espSize, 0)
      partGui.AlwaysOnTop = true
      partGui.MaxDistance = 1000
      partGui.Name = "Item-ESP"
+
      local frame = Instance.new("Frame", partGui)
      frame.BackgroundColor3 = color
      frame.BackgroundTransparency = 0.75
-     frame.Size = UDim2.new(2,0,2,0)
+     frame.Size = UDim2.new(2, 0, 2, 0)
      frame.BorderSizePixel = 0
+
      local nameGui = Instance.new("BillboardGui", part)
-     nameGui.Size = UDim2.new(6,0,3,0)
-     nameGui.SizeOffset = Vector2.new(0,1)
+     nameGui.Size = UDim2.new(6, 0, 3, 0)
+     nameGui.SizeOffset = Vector2.new(0, 1)
      nameGui.AlwaysOnTop = true
      nameGui.MaxDistance = 1000
      nameGui.Name = "Name"
+
      local text = Instance.new("TextLabel", nameGui)
      text.Text = entityName
      text.TextColor3 = color
      text.TextTransparency = 0.25
      text.BackgroundTransparency = 1
      text.TextScaled = true
-     text.Size = UDim2.new(1,0,1,0)
+     text.Size = UDim2.new(1, 0, 1, 0)
      text.Font = Enum.Font.GothamSemibold
      text.Name = "Text"
 
@@ -161,6 +191,288 @@ function addUi(part)
                end
           end
      end)
+end
+
+local function setup1155()
+     local ok, locations = pcall(function()
+          return ws.Sectors.Sector3.SCPs["SCP-1155"].Locations
+     end)
+     if not ok or not locations then
+          markTerminated("SCP-1155")
+          return
+     end
+
+     local color = colors["SCP-1155"]
+
+     local function clearTracer(part)
+          local uid = part:GetDebugId()
+          if tracerLines[uid] then
+               tracerLines[uid].Line.Visible = false
+               tracerLines[uid].Outline.Visible = false
+               tracerLines[uid] = nil
+          end
+     end
+
+     local function clearESP(attachPart)
+          local esp = attachPart:FindFirstChild("Item-ESP")
+          if esp then esp:Destroy() end
+          local nameGui = attachPart:FindFirstChild("Name")
+          if nameGui then nameGui:Destroy() end
+          clearTracer(attachPart)
+     end
+
+     -- get a BasePart from the model to attach UI and tracer to
+     local function getAttachPart(model)
+          if model:IsA("Model") then
+               return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+          end
+          return model:FindFirstChildWhichIsA("BasePart")
+     end
+
+     local function showESP(attachPart, label)
+          if not attachPart then return end
+          if attachPart:FindFirstChild("Item-ESP") then return end
+
+          local partGui = Instance.new("BillboardGui", attachPart)
+          partGui.Size = UDim2.new(4, 0, 4, 0)
+          partGui.AlwaysOnTop = true
+          partGui.MaxDistance = 1000
+          partGui.Name = "Item-ESP"
+
+          local frame = Instance.new("Frame", partGui)
+          frame.BackgroundColor3 = color
+          frame.BackgroundTransparency = 0.75
+          frame.Size = UDim2.new(1, 0, 1, 0)
+          frame.BorderSizePixel = 0
+
+          local nameGui = Instance.new("BillboardGui", attachPart)
+          nameGui.Size = UDim2.new(24, 0, 6, 0)
+          nameGui.SizeOffset = Vector2.new(0, 1)
+          nameGui.AlwaysOnTop = true
+          nameGui.MaxDistance = 1000
+          nameGui.Name = "Name"
+
+          local text = Instance.new("TextLabel", nameGui)
+          text.Text = "SCP-1155 [" .. label .. "]"
+          text.TextColor3 = color
+          text.TextTransparency = 0.25
+          text.BackgroundTransparency = 1
+          text.TextScaled = true
+          text.Size = UDim2.new(1, 0, 1, 0)
+          text.Font = Enum.Font.GothamSemibold
+          text.Name = "Text"
+
+          createTracer(attachPart, color, "SCP-1155")
+
+          if legendLabels["SCP-1155"] then
+               legendLabels["SCP-1155"].Text = "SCP-1155 [" .. label .. "]"
+               legendLabels["SCP-1155"].TextColor3 = color
+          end
+     end
+
+     local originalInstance = locations:FindFirstChild("Original")
+     local originalAttach = originalInstance and getAttachPart(originalInstance)
+     local originalLabel = originalAttach and getLocationName(originalAttach.Position) or "Original Position"
+
+     if originalInstance and originalAttach then
+          local activeBool = originalInstance:FindFirstChild("Active")
+          if activeBool and not activeBool.Value then
+               showESP(originalAttach, originalLabel)
+          end
+          if activeBool then
+               activeBool:GetPropertyChangedSignal("Value"):Connect(function()
+                    if not activeBool.Value then
+                         showESP(originalAttach, originalLabel)
+                    else
+                         clearESP(originalAttach)
+                    end
+               end)
+          end
+     end
+
+     for _, child in ipairs(locations:GetChildren()) do
+          if child.Name ~= "Instance" then continue end
+
+          local activeBool = child:FindFirstChild("Active")
+          local attachPart = getAttachPart(child)
+          if not activeBool or not attachPart then continue end
+
+          local friendlyName = getLocationName(attachPart.Position)
+
+          if activeBool.Value then
+               if originalAttach then clearESP(originalAttach) end
+               showESP(attachPart, friendlyName)
+          end
+
+          activeBool:GetPropertyChangedSignal("Value"):Connect(function()
+               if activeBool.Value then
+                    if originalAttach then clearESP(originalAttach) end
+                    showESP(attachPart, friendlyName)
+               else
+                    clearESP(attachPart)
+                    local anyActive = false
+                    for _, c in ipairs(locations:GetChildren()) do
+                         local ab = c:FindFirstChild("Active")
+                         if ab and ab.Value then anyActive = true break end
+                    end
+                    if not anyActive and originalAttach then
+                         showESP(originalAttach, originalLabel)
+                    end
+               end
+          end)
+     end
+
+     if legendLabels["SCP-1155"] then
+          legendLabels["SCP-1155"].Text = "SCP-1155 [" .. originalLabel .. "]"
+          legendLabels["SCP-1155"].TextColor3 = color
+     end
+end
+
+local function createSettingsMenu()
+     if game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Settings") then return end
+
+     local screenGui = Instance.new("ScreenGui")
+     screenGui.Name = "ESP-Settings"
+     screenGui.ResetOnSpawn = false
+     screenGui.Parent = game.Players.LocalPlayer.PlayerGui
+     screenGui.Enabled = false
+
+     local frame = Instance.new("Frame", screenGui)
+     frame.Size = UDim2.new(0, 180, 0, 90)
+     frame.Position = UDim2.new(0, 200, 1, -110)
+     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+     frame.BackgroundTransparency = 0.3
+     frame.BorderSizePixel = 0
+
+     local corner = Instance.new("UICorner", frame)
+     corner.CornerRadius = UDim.new(0, 8)
+
+     local padding = Instance.new("UIPadding", frame)
+     padding.PaddingLeft = UDim.new(0, 8)
+     padding.PaddingTop = UDim.new(0, 8)
+     padding.PaddingRight = UDim.new(0, 8)
+
+     local title = Instance.new("TextLabel", frame)
+     title.Size = UDim2.new(1, 0, 0, 16)
+     title.Position = UDim2.new(0, 0, 0, 0)
+     title.BackgroundTransparency = 1
+     title.Text = "ESP Settings"
+     title.TextColor3 = Color3.fromRGB(200, 200, 200)
+     title.TextSize = 12
+     title.Font = Enum.Font.GothamSemibold
+     title.TextXAlignment = Enum.TextXAlignment.Left
+
+     local sizeLabel = Instance.new("TextLabel", frame)
+     sizeLabel.Size = UDim2.new(1, 0, 0, 14)
+     sizeLabel.Position = UDim2.new(0, 0, 0, 20)
+     sizeLabel.BackgroundTransparency = 1
+     sizeLabel.Text = "ESP Size: 2.0"
+     sizeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+     sizeLabel.TextSize = 11
+     sizeLabel.Font = Enum.Font.GothamSemibold
+     sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+     local sizeTrack = Instance.new("Frame", frame)
+     sizeTrack.Size = UDim2.new(1, -8, 0, 8)
+     sizeTrack.Position = UDim2.new(0, 0, 0, 36)
+     sizeTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+     sizeTrack.BorderSizePixel = 0
+     local sizeTrackCorner = Instance.new("UICorner", sizeTrack)
+     sizeTrackCorner.CornerRadius = UDim.new(1, 0)
+
+     local sizeThumb = Instance.new("Frame", sizeTrack)
+     sizeThumb.Size = UDim2.new(0, 12, 0, 12)
+     sizeThumb.Position = UDim2.new(0.25, -6, 0.5, -6)
+     sizeThumb.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+     sizeThumb.BorderSizePixel = 0
+     local sizeThumbCorner = Instance.new("UICorner", sizeThumb)
+     sizeThumbCorner.CornerRadius = UDim.new(1, 0)
+
+     local sizeButton = Instance.new("TextButton", sizeTrack)
+     sizeButton.Size = UDim2.new(1, 0, 1, 0)
+     sizeButton.BackgroundTransparency = 1
+     sizeButton.Text = ""
+
+     local thickLabel = Instance.new("TextLabel", frame)
+     thickLabel.Size = UDim2.new(1, 0, 0, 14)
+     thickLabel.Position = UDim2.new(0, 0, 0, 50)
+     thickLabel.BackgroundTransparency = 1
+     thickLabel.Text = "Line Thickness: 1.5"
+     thickLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+     thickLabel.TextSize = 11
+     thickLabel.Font = Enum.Font.GothamSemibold
+     thickLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+     local thickTrack = Instance.new("Frame", frame)
+     thickTrack.Size = UDim2.new(1, -8, 0, 8)
+     thickTrack.Position = UDim2.new(0, 0, 0, 66)
+     thickTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+     thickTrack.BorderSizePixel = 0
+     local thickTrackCorner = Instance.new("UICorner", thickTrack)
+     thickTrackCorner.CornerRadius = UDim.new(1, 0)
+
+     local thickThumb = Instance.new("Frame", thickTrack)
+     thickThumb.Size = UDim2.new(0, 12, 0, 12)
+     thickThumb.Position = UDim2.new(0.1, -6, 0.5, -6)
+     thickThumb.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+     thickThumb.BorderSizePixel = 0
+     local thickThumbCorner = Instance.new("UICorner", thickThumb)
+     thickThumbCorner.CornerRadius = UDim.new(1, 0)
+
+     local thickButton = Instance.new("TextButton", thickTrack)
+     thickButton.Size = UDim2.new(1, 0, 1, 0)
+     thickButton.BackgroundTransparency = 1
+     thickButton.Text = ""
+
+     local function makeSlider(track, thumb, button, minVal, maxVal, onChanged)
+          local dragging = false
+          local function update(inputX)
+               local rel = math.clamp((inputX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+               local value = math.floor((minVal + (maxVal - minVal) * rel) * 10) / 10
+               thumb.Position = UDim2.new(rel, -6, 0.5, -6)
+               onChanged(value)
+          end
+          button.MouseButton1Down:Connect(function() dragging = true end)
+          UserInputService.InputChanged:Connect(function(input)
+               if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    update(input.Position.X)
+               end
+          end)
+          UserInputService.InputEnded:Connect(function(input)
+               if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+               end
+          end)
+     end
+
+     makeSlider(sizeTrack, sizeThumb, sizeButton, 0.5, 5, function(val)
+          espSize = val
+          sizeLabel.Text = "ESP Size: " .. tostring(val)
+          for _, sector in ipairs({ws.Sectors.Sector2.SCPs, ws.Sectors.Sector3.SCPs, ws.Sectors.Sector4.SCPs}) do
+               for _, obj in ipairs(sector:GetDescendants()) do
+                    if obj:IsA("BillboardGui") and obj.Name == "Item-ESP" then
+                         -- skip 1155 by checking if the Name gui text contains SCP-1155
+                         local nameGui = obj.Parent:FindFirstChild("Name")
+                         local textLabel = nameGui and nameGui:FindFirstChild("Text")
+                         if textLabel and textLabel.Text:find("SCP-1155") then continue end
+                         obj.Size = UDim2.new(val, 0, val, 0)
+                    end
+               end
+          end
+     end)
+
+     makeSlider(thickTrack, thickThumb, thickButton, 0.5, 5, function(val)
+          tracerThickness = val
+          thickLabel.Text = "Line Thickness: " .. tostring(val)
+          for _, t in pairs(tracerLines) do
+               if t.LegendKey ~= "SCP-1155" then
+                    t.Line.Thickness = val
+                    t.Outline.Thickness = val + 1.5
+               end
+          end
+     end)
+
+     return screenGui
 end
 
 local function createLegend()
@@ -219,7 +531,7 @@ local function createLegend()
                tracerLabel.Text = "⬤ Tracers OFF"
                tracerLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
                for _, t in pairs(tracerLines) do
-                    t.Line.Visible    = false
+                    t.Line.Visible = false
                     t.Outline.Visible = false
                end
           end
@@ -277,25 +589,26 @@ local function tryAddUi(getPartFunc, fallbackLegendKey)
      end
 end
 
-local ws = game:GetService("Workspace")
 local s2 = ws.Sectors.Sector2.SCPs
 local s3 = ws.Sectors.Sector3.SCPs
 local s4 = ws.Sectors.Sector4.SCPs
 
 createLegend()
+createSettingsMenu()
+setup1155()
 
-tryAddUi(function() return s4["SCP-058"].Torso end,                          "SCP-058")
-tryAddUi(function() return s4["SCP-1350"].Main end,                          "SCP-1350")
-tryAddUi(function() return s4["SCP-352-2"].HumanoidRootPart end,             "SCP-352-2")
-tryAddUi(function() return s3["SCP-017"].HumanoidRootPart end,               "SCP-017")
-tryAddUi(function() return s3["SCP-049"].HumanoidRootPart end,               "SCP-049")
-tryAddUi(function() return s3["SCP-280"].HumanoidRootPart end,               "SCP-280")
-tryAddUi(function() return s3["SCP-457"].HumanoidRootPart end,               "SCP-457")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-1"].HumanoidRootPart end,  "SCP-966")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-2"].HumanoidRootPart end,  "SCP-966")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-3"].HumanoidRootPart end,  "SCP-966")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-4"].HumanoidRootPart end,  "SCP-966")
-tryAddUi(function() return s2["SCP-173"].HumanoidRootPart end,               "SCP-173")
+tryAddUi(function() return s4["SCP-058"].Torso end,                         "SCP-058")
+tryAddUi(function() return s4["SCP-1350"].Main end,                         "SCP-1350")
+tryAddUi(function() return s4["SCP-352-2"].HumanoidRootPart end,            "SCP-352-2")
+tryAddUi(function() return s3["SCP-017"].HumanoidRootPart end,              "SCP-017")
+tryAddUi(function() return s3["SCP-049"].HumanoidRootPart end,              "SCP-049")
+tryAddUi(function() return s3["SCP-280"].HumanoidRootPart end,              "SCP-280")
+tryAddUi(function() return s3["SCP-457"].HumanoidRootPart end,              "SCP-457")
+tryAddUi(function() return s3["SCP-966"]["SCP-966-1"].HumanoidRootPart end, "SCP-966")
+tryAddUi(function() return s3["SCP-966"]["SCP-966-2"].HumanoidRootPart end, "SCP-966")
+tryAddUi(function() return s3["SCP-966"]["SCP-966-3"].HumanoidRootPart end, "SCP-966")
+tryAddUi(function() return s3["SCP-966"]["SCP-966-4"].HumanoidRootPart end, "SCP-966")
+tryAddUi(function() return s2["SCP-173"].HumanoidRootPart end,              "SCP-173")
 
 UserInputService.InputBegan:Connect(function(input)
      if input.KeyCode == Enum.KeyCode.F5 then
@@ -303,6 +616,9 @@ UserInputService.InputBegan:Connect(function(input)
 
           local legend = game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Legend")
           if legend then legend.Enabled = not hidden end
+
+          local settings = game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Settings")
+          if settings and hidden then settings.Enabled = false end
 
           local function toggleGuis(parent)
                for _, obj in ipairs(parent:GetDescendants()) do
@@ -315,5 +631,12 @@ UserInputService.InputBegan:Connect(function(input)
           toggleGuis(ws.Sectors.Sector2.SCPs)
           toggleGuis(ws.Sectors.Sector3.SCPs)
           toggleGuis(ws.Sectors.Sector4.SCPs)
+
+     elseif input.KeyCode == Enum.KeyCode.F6 then
+          if hidden then return end
+          local settings = game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Settings")
+          if settings then
+               settings.Enabled = not settings.Enabled
+          end
      end
 end)

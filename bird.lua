@@ -632,7 +632,7 @@ UserInputService.InputBegan:Connect(function(input)
           toggleGuis(ws.Sectors.Sector3.SCPs)
           toggleGuis(ws.Sectors.Sector4.SCPs)
 
-     elseif input.KeyCode == Enum.KeyCode.F6 then
+     elseif input.KeyCode == Enum.KeyCode.F8 then
           if hidden then return end
           local settings = game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Settings")
           if settings then

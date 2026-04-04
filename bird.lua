@@ -17,27 +17,35 @@ local colors = {
 
 local instanceLocationNames = {
      {pos = Vector3.new(67.4,   408.1, 502.8), name = "Original Position"},
-     {pos = Vector3.new(53.6,   406.7, 328.1), name = "S3L T Junction"},
-     {pos = Vector3.new(-19.4,  406.7, 42.2),  name = "SCP-173 CZ1"},
-     {pos = Vector3.new(-250.8, 406.3, 268.1), name = "S3R Entrance1"},
-     {pos = Vector3.new(-380.6, 406.7, 291.2), name = "SCP-280 CZ"},
-     {pos = Vector3.new(-259.2, 397.9, 385.9), name = "SCP-035"},
-     {pos = Vector3.new(79.8,   407.5, 60.3),  name = "SCP-173 CZ2"},
-     {pos = Vector3.new(-10.8,  407.5, 61.3),  name = "S3E"},
-     {pos = Vector3.new(-311.4, 422.9, 271.3), name = "S3R Entrance2"},
-     {pos = Vector3.new(-421.5, 408.1, 269.2), name = "S3R Entrance3"},
-     {pos = Vector3.new(-414.8, 408.1, 225.7), name = "S3M AUX"},
-     {pos = Vector3.new(-142.6, 407.1, 662.5), name = "CDCZ"},
-     {pos = Vector3.new(181.5,  407.5, 84.1),  name = "S3 Entrance2"},
+     {pos = Vector3.new(5.1,    406.9, 535.7), name = "S3L T Junction"},
+     {pos = Vector3.new(-19.4,  406.7, 42.2),  name = "IDK man report it to BIRD"},
+     {pos = Vector3.new(-250.8, 406.3, 268.1), name = "457 CZ"},
+     {pos = Vector3.new(-380.6, 406.7, 291.2), name = "S3R Entrance 3"},
+     {pos = Vector3.new(-259.2, 397.9, 385.9), name = "SCP-280 CZ"},
+     {pos = Vector3.new(79.8,   407.5, 60.3),  name = "SCP-035 CZ"},
+     {pos = Vector3.new(-14.8,  407.5, 41.3),  name = "SCP-173 CZ2"},
+     {pos = Vector3.new(-311.4, 422.9, 271.3), name = "457 CZ Upstairs"},
+     {pos = Vector3.new(-421.5, 408.1, 269.2), name = "S3R Entrance 2"},
+     {pos = Vector3.new(-414.3, 408.1, 230.3), name = "S3R Entrance 1"},
+     {pos = Vector3.new(-142.6, 407.1, 662.5), name = "S3M AUX"},
+     {pos = Vector3.new(181.5,  407.5, 84.1),  name = "CDCVA"},
 }
 
 local function getLocationName(position)
      for _, entry in ipairs(instanceLocationNames) do
-          if (position - entry.pos).Magnitude < 10 then
+          if (position - entry.pos).Magnitude < 20 then
                return entry.name
           end
      end
      return "Unknown Location"
+end
+
+local function getDirectBasePart(model)
+     for _, child in ipairs(model:GetChildren()) do
+          if child:IsA("BasePart") then
+               return child
+          end
+     end
 end
 
 local legendLabels = {}
@@ -47,10 +55,13 @@ local tracersEnabled = true
 local active966Count = 0
 local failed966Count = 0
 
-local ws = game:GetService("Workspace")
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local ws = game:GetService("Workspace")
+local s2 = ws.Sectors.Sector2.SCPs
+local s3 = ws.Sectors.Sector3.SCPs
+local s4 = ws.Sectors.Sector4.SCPs
 
 local function getLegendKey(name)
      if name:find("SCP-966") then return "SCP-966" end
@@ -213,27 +224,20 @@ local function setup1155()
           end
      end
 
-     local function clearESP(attachPart)
-          local esp = attachPart:FindFirstChild("Item-ESP")
+     local function clearESP(part)
+          if not part then return end
+          local esp = part:FindFirstChild("Item-ESP")
           if esp then esp:Destroy() end
-          local nameGui = attachPart:FindFirstChild("Name")
+          local nameGui = part:FindFirstChild("Name")
           if nameGui then nameGui:Destroy() end
-          clearTracer(attachPart)
+          clearTracer(part)
      end
 
-     -- get a BasePart from the model to attach UI and tracer to
-     local function getAttachPart(model)
-          if model:IsA("Model") then
-               return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-          end
-          return model:FindFirstChildWhichIsA("BasePart")
-     end
+     local function showESP(part, label)
+          if not part then return end
+          if part:FindFirstChild("Item-ESP") then return end
 
-     local function showESP(attachPart, label)
-          if not attachPart then return end
-          if attachPart:FindFirstChild("Item-ESP") then return end
-
-          local partGui = Instance.new("BillboardGui", attachPart)
+          local partGui = Instance.new("BillboardGui", part)
           partGui.Size = UDim2.new(4, 0, 4, 0)
           partGui.AlwaysOnTop = true
           partGui.MaxDistance = 1000
@@ -245,7 +249,7 @@ local function setup1155()
           frame.Size = UDim2.new(1, 0, 1, 0)
           frame.BorderSizePixel = 0
 
-          local nameGui = Instance.new("BillboardGui", attachPart)
+          local nameGui = Instance.new("BillboardGui", part)
           nameGui.Size = UDim2.new(24, 0, 6, 0)
           nameGui.SizeOffset = Vector2.new(0, 1)
           nameGui.AlwaysOnTop = true
@@ -262,7 +266,7 @@ local function setup1155()
           text.Font = Enum.Font.GothamSemibold
           text.Name = "Text"
 
-          createTracer(attachPart, color, "SCP-1155")
+          createTracer(part, color, "SCP-1155")
 
           if legendLabels["SCP-1155"] then
                legendLabels["SCP-1155"].Text = "SCP-1155 [" .. label .. "]"
@@ -271,20 +275,23 @@ local function setup1155()
      end
 
      local originalInstance = locations:FindFirstChild("Original")
-     local originalAttach = originalInstance and getAttachPart(originalInstance)
-     local originalLabel = originalAttach and getLocationName(originalAttach.Position) or "Original Position"
+     local originalPart = originalInstance and (
+          originalInstance.PrimaryPart or getDirectBasePart(originalInstance)
+     )
 
-     if originalInstance and originalAttach then
+     if originalInstance and originalPart then
           local activeBool = originalInstance:FindFirstChild("Active")
+
           if activeBool and not activeBool.Value then
-               showESP(originalAttach, originalLabel)
+               showESP(originalPart, "Original Position")
           end
+
           if activeBool then
                activeBool:GetPropertyChangedSignal("Value"):Connect(function()
                     if not activeBool.Value then
-                         showESP(originalAttach, originalLabel)
+                         showESP(originalPart, "Original Position")
                     else
-                         clearESP(originalAttach)
+                         clearESP(originalPart)
                     end
                end)
           end
@@ -294,36 +301,36 @@ local function setup1155()
           if child.Name ~= "Instance" then continue end
 
           local activeBool = child:FindFirstChild("Active")
-          local attachPart = getAttachPart(child)
-          if not activeBool or not attachPart then continue end
+          local part = child.PrimaryPart or getDirectBasePart(child)
+          if not activeBool or not part then continue end
 
-          local friendlyName = getLocationName(attachPart.Position)
+          local friendlyName = getLocationName(part.Position)
 
           if activeBool.Value then
-               if originalAttach then clearESP(originalAttach) end
-               showESP(attachPart, friendlyName)
+               clearESP(originalPart)
+               showESP(part, friendlyName)
           end
 
           activeBool:GetPropertyChangedSignal("Value"):Connect(function()
                if activeBool.Value then
-                    if originalAttach then clearESP(originalAttach) end
-                    showESP(attachPart, friendlyName)
+                    clearESP(originalPart)
+                    showESP(part, friendlyName)
                else
-                    clearESP(attachPart)
+                    clearESP(part)
                     local anyActive = false
                     for _, c in ipairs(locations:GetChildren()) do
                          local ab = c:FindFirstChild("Active")
                          if ab and ab.Value then anyActive = true break end
                     end
-                    if not anyActive and originalAttach then
-                         showESP(originalAttach, originalLabel)
+                    if not anyActive and originalPart then
+                         showESP(originalPart, "Original Position")
                     end
                end
           end)
      end
 
      if legendLabels["SCP-1155"] then
-          legendLabels["SCP-1155"].Text = "SCP-1155 [" .. originalLabel .. "]"
+          legendLabels["SCP-1155"].Text = "SCP-1155 [Original Position]"
           legendLabels["SCP-1155"].TextColor3 = color
      end
 end
@@ -382,7 +389,7 @@ local function createSettingsMenu()
 
      local sizeThumb = Instance.new("Frame", sizeTrack)
      sizeThumb.Size = UDim2.new(0, 12, 0, 12)
-     sizeThumb.Position = UDim2.new(0.25, -6, 0.5, -6)
+     sizeThumb.Position = UDim2.new(0.08, -6, 0.5, -6)
      sizeThumb.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
      sizeThumb.BorderSizePixel = 0
      local sizeThumbCorner = Instance.new("UICorner", sizeThumb)
@@ -445,17 +452,17 @@ local function createSettingsMenu()
           end)
      end
 
-     makeSlider(sizeTrack, sizeThumb, sizeButton, 0.5, 5, function(val)
+     makeSlider(sizeTrack, sizeThumb, sizeButton, 0.5, 20, function(val)
           espSize = val
           sizeLabel.Text = "ESP Size: " .. tostring(val)
-          for _, sector in ipairs({ws.Sectors.Sector2.SCPs, ws.Sectors.Sector3.SCPs, ws.Sectors.Sector4.SCPs}) do
+          for _, sector in ipairs({s2, s3, s4}) do
                for _, obj in ipairs(sector:GetDescendants()) do
                     if obj:IsA("BillboardGui") and obj.Name == "Item-ESP" then
-                         -- skip 1155 by checking if the Name gui text contains SCP-1155
                          local nameGui = obj.Parent:FindFirstChild("Name")
                          local textLabel = nameGui and nameGui:FindFirstChild("Text")
-                         if textLabel and textLabel.Text:find("SCP-1155") then continue end
-                         obj.Size = UDim2.new(val, 0, val, 0)
+                         if textLabel and not textLabel.Text:find("SCP-1155") then
+                              obj.Size = UDim2.new(val, 0, val, 0)
+                         end
                     end
                end
           end
@@ -588,10 +595,6 @@ local function tryAddUi(getPartFunc, fallbackLegendKey)
           end
      end
 end
-
-local s2 = ws.Sectors.Sector2.SCPs
-local s3 = ws.Sectors.Sector3.SCPs
-local s4 = ws.Sectors.Sector4.SCPs
 
 createLegend()
 createSettingsMenu()

@@ -13,6 +13,9 @@ local colors = {
      ["SCP-352-2"]= Color3.fromRGB(255, 0, 150),
      ["SCP-1350"] = Color3.fromRGB(0, 255, 255),
      ["SCP-173"]  = Color3.fromRGB(200, 200, 200),
+	 ["SCP-914-X"] = Color3.fromRGB(255, 50, 50),
+      ["SCP-610"] = Color3.fromRGB(234, 184, 146),
+      ["SCP-049-2"] = Color3.fromRGB(0, 150, 100),
 }
 
 local instanceLocationNames = {
@@ -335,6 +338,444 @@ local function setup1155()
      end
 end
 
+local function setup914X()
+     local Players = game:GetService("Players")
+     local color = colors["SCP-914-X"]
+     local tracked = {}
+
+     local function is914X(player)
+          local char = player.Character
+          if not char then return false end
+          local torso = char:FindFirstChild("Torso")
+          if not torso then return false end
+          local isBlack = torso.Color == Color3.new(0, 0, 0)
+          if not isBlack then return false end
+          local hasShirt = char:FindFirstChildOfClass("Shirt") ~= nil
+          local hasPants = char:FindFirstChildOfClass("Pants") ~= nil
+          local hasAccessory = char:FindFirstChildOfClass("Accessory") ~= nil
+          return not hasShirt and not hasPants and not hasAccessory
+     end
+
+     local function update914XLegend()
+          local count = 0
+          for _ in pairs(tracked) do count = count + 1 end
+          if legendLabels["SCP-914-X"] then
+               if count == 0 then
+                    legendLabels["SCP-914-X"].Text = "SCP-914-X (none active)"
+                    legendLabels["SCP-914-X"].TextColor3 = Color3.fromRGB(100, 100, 100)
+               else
+                    legendLabels["SCP-914-X"].Text = "SCP-914-X (" .. count .. " active)"
+                    legendLabels["SCP-914-X"].TextColor3 = color
+               end
+          end
+     end
+
+     local function removeESP(player)
+          if not tracked[player.Name] then return end
+          local torso = tracked[player.Name]
+          tracked[player.Name] = nil
+
+          local esp = torso:FindFirstChild("Item-ESP")
+          if esp then esp:Destroy() end
+          local nameGui = torso:FindFirstChild("Name")
+          if nameGui then nameGui:Destroy() end
+
+          local uid = torso:GetDebugId()
+          if tracerLines[uid] then
+               tracerLines[uid].Line.Visible = false
+               tracerLines[uid].Outline.Visible = false
+               tracerLines[uid] = nil
+          end
+
+          update914XLegend()
+     end
+
+     local function addESP(player)
+          if tracked[player.Name] then return end
+          local char = player.Character
+          if not char then return end
+          local torso = char:FindFirstChild("Torso")
+          if not torso then return end
+
+          tracked[player.Name] = torso
+
+          local partGui = Instance.new("BillboardGui", torso)
+          partGui.Size = UDim2.new(espSize, 0, espSize, 0)
+          partGui.AlwaysOnTop = true
+          partGui.MaxDistance = 1000
+          partGui.Name = "Item-ESP"
+
+          local frame = Instance.new("Frame", partGui)
+          frame.BackgroundColor3 = color
+          frame.BackgroundTransparency = 0.75
+          frame.Size = UDim2.new(2, 0, 2, 0)
+          frame.BorderSizePixel = 0
+
+          local nameGui = Instance.new("BillboardGui", torso)
+          nameGui.Size = UDim2.new(6, 0, 3, 0)
+          nameGui.SizeOffset = Vector2.new(0, 1)
+          nameGui.AlwaysOnTop = true
+          nameGui.MaxDistance = 1000
+          nameGui.Name = "Name"
+
+          local text = Instance.new("TextLabel", nameGui)
+          text.Text = "SCP-914-X [" .. player.Name .. "]"
+          text.TextColor3 = color
+          text.TextTransparency = 0.25
+          text.BackgroundTransparency = 1
+          text.TextScaled = true
+          text.Size = UDim2.new(1, 0, 1, 0)
+          text.Font = Enum.Font.GothamSemibold
+          text.Name = "Text"
+
+          createTracer(torso, color, "SCP-914-X")
+          update914XLegend()
+     end
+
+     local function watchPlayer(player)
+          local function onCharacter(char)
+               removeESP(player)
+
+               local torso = char:FindFirstChild("Torso")
+               if not torso then
+                    local added = char.ChildAdded:Wait()
+                    while added.Name ~= "Torso" do
+                         added = char.ChildAdded:Wait()
+                    end
+                    torso = added
+               end
+
+               if not torso then return end
+
+               torso.Changed:Connect(function()
+                    if is914X(player) then addESP(player) else removeESP(player) end
+               end)
+
+               char.ChildAdded:Connect(function()
+                    if not is914X(player) then removeESP(player) end
+               end)
+
+               char.ChildRemoved:Connect(function()
+                    if is914X(player) then addESP(player) end
+               end)
+
+               if is914X(player) then
+                    addESP(player)
+               end
+          end
+
+          if player.Character then
+               onCharacter(player.Character)
+          end
+          player.CharacterAdded:Connect(onCharacter)
+          player.CharacterRemoving:Connect(function()
+               removeESP(player)
+          end)
+     end
+
+     for _, player in ipairs(Players:GetPlayers()) do
+          watchPlayer(player)
+     end
+
+     Players.PlayerAdded:Connect(function(player)
+          watchPlayer(player)
+     end)
+
+     Players.PlayerRemoving:Connect(function(player)
+          removeESP(player)
+     end)
+
+     update914XLegend()
+end
+local function setup610()
+     local Players = game:GetService("Players")
+     local color = colors["SCP-610"]
+     local tracked = {}
+
+     local function is610(player)
+          local char = player.Character
+          if not char then return false end
+          local torso = char:FindFirstChild("Torso")
+          if not torso then return false end
+          local hasMorph = char:FindFirstChild("Morph") ~= nil
+          local isOrange = torso.Color == Color3.fromRGB(234, 184, 146)
+          return hasMorph and isOrange
+     end
+
+     local function update610Legend()
+          local count = 0
+          for _ in pairs(tracked) do count = count + 1 end
+          if legendLabels["SCP-610"] then
+               if count == 0 then
+                    legendLabels["SCP-610"].Text = "SCP-610 (none active)"
+                    legendLabels["SCP-610"].TextColor3 = Color3.fromRGB(100, 100, 100)
+               else
+                    legendLabels["SCP-610"].Text = "SCP-610 (" .. count .. " active)"
+                    legendLabels["SCP-610"].TextColor3 = color
+               end
+          end
+     end
+
+     local function removeESP(player)
+          if not tracked[player.Name] then return end
+          local torso = tracked[player.Name]
+          tracked[player.Name] = nil
+
+          local esp = torso:FindFirstChild("Item-ESP")
+          if esp then esp:Destroy() end
+          local nameGui = torso:FindFirstChild("Name")
+          if nameGui then nameGui:Destroy() end
+
+          local uid = torso:GetDebugId()
+          if tracerLines[uid] then
+               tracerLines[uid].Line.Visible = false
+               tracerLines[uid].Outline.Visible = false
+               tracerLines[uid] = nil
+          end
+
+          update610Legend()
+     end
+
+     local function addESP(player)
+          if tracked[player.Name] then return end
+          local char = player.Character
+          if not char then return end
+          local torso = char:FindFirstChild("Torso")
+          if not torso then return end
+
+          tracked[player.Name] = torso
+
+          local partGui = Instance.new("BillboardGui", torso)
+          partGui.Size = UDim2.new(espSize, 0, espSize, 0)
+          partGui.AlwaysOnTop = true
+          partGui.MaxDistance = 1000
+          partGui.Name = "Item-ESP"
+
+          local frame = Instance.new("Frame", partGui)
+          frame.BackgroundColor3 = color
+          frame.BackgroundTransparency = 0.75
+          frame.Size = UDim2.new(2, 0, 2, 0)
+          frame.BorderSizePixel = 0
+
+          local nameGui = Instance.new("BillboardGui", torso)
+          nameGui.Size = UDim2.new(6, 0, 3, 0)
+          nameGui.SizeOffset = Vector2.new(0, 1)
+          nameGui.AlwaysOnTop = true
+          nameGui.MaxDistance = 1000
+          nameGui.Name = "Name"
+
+          local text = Instance.new("TextLabel", nameGui)
+          text.Text = "SCP-610 [" .. player.Name .. "]"
+          text.TextColor3 = color
+          text.TextTransparency = 0.25
+          text.BackgroundTransparency = 1
+          text.TextScaled = true
+          text.Size = UDim2.new(1, 0, 1, 0)
+          text.Font = Enum.Font.GothamSemibold
+          text.Name = "Text"
+
+          createTracer(torso, color, "SCP-610")
+          update610Legend()
+     end
+
+     local function watchPlayer(player)
+          local function onCharacter(char)
+               removeESP(player)
+
+               local torso = char:FindFirstChild("Torso")
+               if not torso then
+                    local added = char.ChildAdded:Wait()
+                    while added.Name ~= "Torso" do
+                         added = char.ChildAdded:Wait()
+                    end
+                    torso = added
+               end
+
+               if not torso then return end
+
+               torso.Changed:Connect(function()
+                    if is610(player) then addESP(player) else removeESP(player) end
+               end)
+
+               char.ChildAdded:Connect(function()
+                    if is610(player) then addESP(player) else removeESP(player) end
+               end)
+
+               char.ChildRemoved:Connect(function()
+                    if is610(player) then addESP(player) else removeESP(player) end
+               end)
+
+               if is610(player) then
+                    addESP(player)
+               end
+          end
+
+          if player.Character then
+               onCharacter(player.Character)
+          end
+          player.CharacterAdded:Connect(onCharacter)
+          player.CharacterRemoving:Connect(function()
+               removeESP(player)
+          end)
+     end
+
+     for _, player in ipairs(Players:GetPlayers()) do
+          watchPlayer(player)
+     end
+
+     Players.PlayerAdded:Connect(function(player)
+          watchPlayer(player)
+     end)
+
+     Players.PlayerRemoving:Connect(function(player)
+          removeESP(player)
+     end)
+
+     update610Legend()
+end
+local function setup0492()
+     local Players = game:GetService("Players")
+     local color = colors["SCP-049-2"]
+     local tracked = {}
+
+     local function is0492(player)
+          local char = player.Character
+          if not char then return false end
+          local torso = char:FindFirstChild("Torso")
+          if not torso then return false end
+          local hasParticle = torso:FindFirstChildOfClass("ParticleEmitter") ~= nil
+          local hasSound = torso:FindFirstChildOfClass("Sound") ~= nil
+          return hasParticle and hasSound
+     end
+
+     local function update0492Legend()
+          local count = 0
+          for _ in pairs(tracked) do count = count + 1 end
+          if legendLabels["SCP-049-2"] then
+               if count == 0 then
+                    legendLabels["SCP-049-2"].Text = "SCP-049-2 (none active)"
+                    legendLabels["SCP-049-2"].TextColor3 = Color3.fromRGB(100, 100, 100)
+               else
+                    legendLabels["SCP-049-2"].Text = "SCP-049-2 (" .. count .. " active)"
+                    legendLabels["SCP-049-2"].TextColor3 = color
+               end
+          end
+     end
+
+     local function removeESP(player)
+          if not tracked[player.Name] then return end
+          local torso = tracked[player.Name]
+          tracked[player.Name] = nil
+
+          local esp = torso:FindFirstChild("Item-ESP")
+          if esp then esp:Destroy() end
+          local nameGui = torso:FindFirstChild("Name")
+          if nameGui then nameGui:Destroy() end
+
+          local uid = torso:GetDebugId()
+          if tracerLines[uid] then
+               tracerLines[uid].Line.Visible = false
+               tracerLines[uid].Outline.Visible = false
+               tracerLines[uid] = nil
+          end
+
+          update0492Legend()
+     end
+
+     local function addESP(player)
+          if tracked[player.Name] then return end
+          local char = player.Character
+          if not char then return end
+          local torso = char:FindFirstChild("Torso")
+          if not torso then return end
+
+          tracked[player.Name] = torso
+
+          local partGui = Instance.new("BillboardGui", torso)
+          partGui.Size = UDim2.new(espSize, 0, espSize, 0)
+          partGui.AlwaysOnTop = true
+          partGui.MaxDistance = 1000
+          partGui.Name = "Item-ESP"
+
+          local frame = Instance.new("Frame", partGui)
+          frame.BackgroundColor3 = color
+          frame.BackgroundTransparency = 0.75
+          frame.Size = UDim2.new(2, 0, 2, 0)
+          frame.BorderSizePixel = 0
+
+          local nameGui = Instance.new("BillboardGui", torso)
+          nameGui.Size = UDim2.new(6, 0, 3, 0)
+          nameGui.SizeOffset = Vector2.new(0, 1)
+          nameGui.AlwaysOnTop = true
+          nameGui.MaxDistance = 1000
+          nameGui.Name = "Name"
+
+          local text = Instance.new("TextLabel", nameGui)
+          text.Text = "SCP-049-2 [" .. player.Name .. "]"
+          text.TextColor3 = color
+          text.TextTransparency = 0.25
+          text.BackgroundTransparency = 1
+          text.TextScaled = true
+          text.Size = UDim2.new(1, 0, 1, 0)
+          text.Font = Enum.Font.GothamSemibold
+          text.Name = "Text"
+
+          createTracer(torso, color, "SCP-049-2")
+          update0492Legend()
+     end
+
+     local function watchPlayer(player)
+          local function onCharacter(char)
+               removeESP(player)
+
+               local torso = char:FindFirstChild("Torso")
+               if not torso then
+                    local added = char.ChildAdded:Wait()
+                    while added.Name ~= "Torso" do
+                         added = char.ChildAdded:Wait()
+                    end
+                    torso = added
+               end
+
+               if not torso then return end
+
+               -- watch torso children for particle and sound appearing/disappearing
+               torso.ChildAdded:Connect(function()
+                    if is0492(player) then addESP(player) end
+               end)
+
+               torso.ChildRemoved:Connect(function()
+                    if not is0492(player) then removeESP(player) end
+               end)
+
+               if is0492(player) then
+                    addESP(player)
+               end
+          end
+
+          if player.Character then
+               onCharacter(player.Character)
+          end
+          player.CharacterAdded:Connect(onCharacter)
+          player.CharacterRemoving:Connect(function()
+               removeESP(player)
+          end)
+     end
+
+     for _, player in ipairs(Players:GetPlayers()) do
+          watchPlayer(player)
+     end
+
+     Players.PlayerAdded:Connect(function(player)
+          watchPlayer(player)
+     end)
+
+     Players.PlayerRemoving:Connect(function(player)
+          removeESP(player)
+     end)
+
+     update0492Legend()
+end
 local function createSettingsMenu()
      if game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Settings") then return end
 
@@ -599,6 +1040,9 @@ end
 createLegend()
 createSettingsMenu()
 setup1155()
+setup914X()
+setup610()
+setup0492()
 
 tryAddUi(function() return s4["SCP-058"].Torso end,                         "SCP-058")
 tryAddUi(function() return s4["SCP-1350"].Main end,                         "SCP-1350")

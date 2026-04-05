@@ -14,8 +14,8 @@ local colors = {
      ["SCP-1350"] = Color3.fromRGB(0, 255, 255),
      ["SCP-173"]  = Color3.fromRGB(200, 200, 200),
 	 ["SCP-914-X"] = Color3.fromRGB(255, 50, 50),
-      ["SCP-610"] = Color3.fromRGB(234, 184, 146),
-      ["SCP-049-2"] = Color3.fromRGB(0, 150, 100),
+     ["SCP-610"] = Color3.fromRGB(234, 184, 146),
+     ["SCP-049-2"] = Color3.fromRGB(0, 150, 100),
 }
 
 local instanceLocationNames = {

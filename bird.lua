@@ -14,8 +14,8 @@ local colors = {
      ["SCP-1350"] = Color3.fromRGB(0, 255, 255),
      ["SCP-173"]  = Color3.fromRGB(200, 200, 200),
 	 ["SCP-914-X"] = Color3.fromRGB(255, 50, 50),
-     ["SCP-610"] = Color3.fromRGB(234, 184, 146),
-     ["SCP-049-2"] = Color3.fromRGB(0, 150, 100),
+      ["SCP-610"] = Color3.fromRGB(234, 184, 146),
+      ["SCP-049-2"] = Color3.fromRGB(0, 150, 100),
 }
 
 local instanceLocationNames = {
@@ -923,6 +923,22 @@ local function createSettingsMenu()
      return screenGui
 end
 
+local legendOrder = {
+     "SCP-017",
+     "SCP-049",
+     "SCP-049-2",
+     "SCP-058",
+     "SCP-173",
+     "SCP-280",
+     "SCP-352-2",
+     "SCP-457",
+     "SCP-610",
+     "SCP-966",
+     "SCP-914-X",
+     "SCP-1155",
+     "SCP-1350",
+}
+
 local function createLegend()
      if game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Legend") then return end
 
@@ -932,8 +948,7 @@ local function createLegend()
      screenGui.Parent = game.Players.LocalPlayer.PlayerGui
 
      local rowHeight = 22
-     local totalRows = 0
-     for _ in pairs(colors) do totalRows = totalRows + 1 end
+     local totalRows = #legendOrder
 
      local frame = Instance.new("Frame", screenGui)
      frame.Size = UDim2.new(0, 180, 0, totalRows * rowHeight + 35)
@@ -986,7 +1001,10 @@ local function createLegend()
      end)
 
      local i = 0
-     for name, color in pairs(colors) do
+     for _, name in ipairs(legendOrder) do
+          local color = colors[name]
+          if not color then continue end
+
           local row = Instance.new("Frame", frame)
           row.Size = UDim2.new(1, -8, 0, rowHeight)
           row.Position = UDim2.new(0, 0, 0, i * rowHeight + 28)

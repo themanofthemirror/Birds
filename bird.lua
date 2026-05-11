@@ -1,6 +1,62 @@
+if _G.BirdESP_Active then
+     pcall(function() RunService:UnbindFromRenderStep("SCP_Tracers") end)
+     pcall(function() RunService:UnbindFromRenderStep("SCP_Spectate") end)
+     if _G.BirdESP_TracerLines then
+          for _, t in pairs(_G.BirdESP_TracerLines) do
+               pcall(function() t.Line:Remove() end)
+               pcall(function() t.Outline:Remove() end)
+          end
+     end
+     if _G.BirdESP_ArrowDrawings then
+          for _, arrow in pairs(_G.BirdESP_ArrowDrawings) do
+               pcall(function() arrow:Remove() end)
+          end
+     end
+     pcall(function()
+          for _, sector in ipairs({
+               game:GetService("Workspace").Sectors.Sector2.SCPs,
+               game:GetService("Workspace").Sectors.Sector3.SCPs,
+               game:GetService("Workspace").Sectors.Sector4.SCPs,
+          }) do
+               for _, obj in ipairs(sector:GetDescendants()) do
+                    if obj:IsA("BillboardGui") and (obj.Name == "Item-ESP" or obj.Name == "Name") then
+                         obj:Destroy()
+                    end
+               end
+          end
+     end)
+     pcall(function()
+          local pg = game.Players.LocalPlayer.PlayerGui
+          for _, name in ipairs({"ESP-Legend", "ESP-Settings", "ESP-Minimap", "ESP-SpectateLabel"}) do
+               local gui = pg:FindFirstChild(name)
+               if gui then gui:Destroy() end
+          end
+     end)
+     -- clear player character billboards
+     pcall(function()
+          for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+               local char = player.Character
+               if not char then continue end
+               for _, obj in ipairs(char:GetDescendants()) do
+                    if obj:IsA("BillboardGui") and (obj.Name == "Item-ESP" or obj.Name == "Name") then
+                         obj:Destroy()
+                    end
+               end
+          end
+     end)
+end
+
+_G.BirdESP_Active = true
+
+--All Gloabals
 local espSize = 2
 local tracerThickness = 1.5
 local settingsOpen = false
+local spectating = false
+local spectateIndex = 1
+local spectateList = {}
+local originalCameraType = nil
+local originalCameraCFrame = nil
 
 local colors = {
      ["SCP-1155"] = Color3.fromRGB(255, 165, 0),
@@ -53,6 +109,10 @@ end
 
 local legendLabels = {}
 local tracerLines = {}
+local arrowDrawings = {}
+_G.BirdESP_TracerLines = tracerLines
+_G.BirdESP_ArrowDrawings = arrowDrawings
+
 local hidden = false
 local tracersEnabled = true
 local active966Count = 0
@@ -155,6 +215,12 @@ local function markTerminated(legendKey)
 end
 
 local function createTracer(part, color, legendKey)
+    
+     local uid = part:GetDebugId()
+     
+
+     if tracerLines[uid] then return end
+
      local outline = Drawing.new("Line")
      outline.Thickness    = tracerThickness + 1.5
      outline.Color        = Color3.fromRGB(25, 25, 25)
@@ -167,12 +233,13 @@ local function createTracer(part, color, legendKey)
      line.Transparency = 0.75
      line.Visible      = false
 
-     local uid = part:GetDebugId()
      tracerLines[uid] = { Line = line, Outline = outline, Part = part, LegendKey = legendKey }
 end
 
+
+
 -- off screen arrows storage
-local arrowDrawings = {}
+
 
 local function getOrCreateArrow(uid, color)
      if not arrowDrawings[uid] then
@@ -219,7 +286,9 @@ RunService:BindToRenderStep("SCP_Tracers", 300, function()
                local transparency = math.clamp(1 - (distance / 200), 0.25, 0.75)
                -- proximity color fade for tracer: gets brighter when close
                local proximityAlpha = math.clamp(1 - (distance / 500), 0, 1)
-               local fadedColor = t.Line.Color:Lerp(Color3.fromRGB(255, 255, 255), proximityAlpha * 0.3)
+               local baseColor = colors[getLegendKey(t.LegendKey)] or Color3.fromRGB(255, 255, 255)
+               local proximityAlpha = math.clamp(1 - (distance / 500), 0, 1)
+               local fadedColor = baseColor:Lerp(Color3.fromRGB(255, 255, 255), proximityAlpha * 0.3)
 
                if screenPos.Z > 0 and onScreen then
                     -- on screen: show tracer, hide arrow
@@ -286,6 +355,8 @@ RunService:BindToRenderStep("SCP_Tracers", 300, function()
      end
 end)
 
+
+
 function addUi(part)
      if not part or part:FindFirstChild("Item-ESP") then return end
 
@@ -342,7 +413,35 @@ function addUi(part)
      end)
 end
 
+local function watchForRespawn(getPartFunc, fallbackLegendKey)
+     local function attach()
+          local ok, part = pcall(getPartFunc)
+          print("watchForRespawn attach:", fallbackLegendKey, "ok:", ok, "part:", part)
+          if ok and part then
+               local addOk, err = pcall(addUi, part)
+               print("addUi result:", fallbackLegendKey, "ok:", addOk, "err:", err)
+               pcall(addUi, part)
+
+               -- watch for the part being removed then re-added
+               part.AncestryChanged:Connect(function()
+                    if not part.Parent then
+                         -- wait a moment then try to reattach
+                         task.wait(2)
+                         attach()
+                    end
+               end)
+          else
+               -- part doesnt exist yet, watch the parent for it appearing
+               task.wait(3)
+               attach()
+          end
+     end
+
+     task.spawn(attach)
+end
+
 local function setup1155()
+     local uid = part
      local ok, locations = pcall(function()
           return ws.Sectors.Sector3.SCPs["SCP-1155"].Locations
      end)
@@ -506,6 +605,7 @@ local function setup914X()
      end
 
      local function removeESP(player)
+          local uid = torso
           if not tracked[player.Name] then return end
           local torso = tracked[player.Name]
           tracked[player.Name] = nil
@@ -1141,8 +1241,8 @@ local function createLegend()
      local totalRows = #legendOrder
 
      local frame = Instance.new("Frame", screenGui)
-     frame.Size = UDim2.new(0, 180, 0, totalRows * rowHeight + 80)
-     frame.Position = UDim2.new(0, 10, 1, -(totalRows * rowHeight + 90))
+     frame.Size = UDim2.new(0, 180, 0, totalRows * rowHeight + 115)
+     frame.Position = UDim2.new(0, 10, 1, -(totalRows * rowHeight + 125))
      frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
      frame.BackgroundTransparency = 0.3
      frame.BorderSizePixel = 0
@@ -1223,7 +1323,7 @@ local function createLegend()
      end
      -- keybind display at bottom of legend
      local keybindFrame = Instance.new("Frame", frame)
-     keybindFrame.Size = UDim2.new(1, -8, 0, 36)
+     keybindFrame.Size = UDim2.new(1, -8, 0, 72)
      keybindFrame.Position = UDim2.new(0, 0, 0, totalRows * rowHeight + 33)
      keybindFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
      keybindFrame.BackgroundTransparency = 0.3
@@ -1231,10 +1331,13 @@ local function createLegend()
      local keybindCorner = Instance.new("UICorner", keybindFrame)
      keybindCorner.CornerRadius = UDim.new(0, 6)
 
-     local keybinds = {
-          "[F5] Toggle ESP",
-          "[F8] Settings",
-     }
+    local keybinds = {
+     "[F5] Toggle ESP",
+     "[F8] Settings",
+     "[PgUp] Spectate / Next",
+     "[PgDn] Spectate Prev",
+     "[Del] Exit Spectate",
+}
 
      for idx, text in ipairs(keybinds) do
           local kLabel = Instance.new("TextLabel", keybindFrame)
@@ -1242,10 +1345,12 @@ local function createLegend()
           kLabel.Position = UDim2.new(0, 6, 0, (idx - 1) * 16 + 2)
           kLabel.BackgroundTransparency = 1
           kLabel.Text = text
-          kLabel.TextColor3 = Color3.fromRGB(140, 140, 140)
+          kLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
           kLabel.TextSize = 10
-          kLabel.Font = Enum.Font.GothamSemibold
+          kLabel.Font = Enum.Font.GothamBold -- was GothamSemibold
           kLabel.TextXAlignment = Enum.TextXAlignment.Left
+          kLabel.TextStrokeTransparency = 0.5  -- adds a dark outline around each letter
+          kLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
      end
 end
 
@@ -1423,18 +1528,138 @@ local function createMinimap()
 end
 createMinimap()
 --]]
-tryAddUi(function() return s4["SCP-058"].Torso end,                         "SCP-058")
-tryAddUi(function() return s4["SCP-1350"].Main end,                         "SCP-1350")
-tryAddUi(function() return s4["SCP-352-2"].HumanoidRootPart end,            "SCP-352-2")
-tryAddUi(function() return s3["SCP-017"].HumanoidRootPart end,              "SCP-017")
-tryAddUi(function() return s3["SCP-049"].HumanoidRootPart end,              "SCP-049")
-tryAddUi(function() return s3["SCP-280"].HumanoidRootPart end,              "SCP-280")
-tryAddUi(function() return s3["SCP-457"].HumanoidRootPart end,              "SCP-457")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-1"].HumanoidRootPart end, "SCP-966")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-2"].HumanoidRootPart end, "SCP-966")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-3"].HumanoidRootPart end, "SCP-966")
-tryAddUi(function() return s3["SCP-966"]["SCP-966-4"].HumanoidRootPart end, "SCP-966")
-tryAddUi(function() return s2["SCP-173"].HumanoidRootPart end,              "SCP-173")
+watchForRespawn(function() return s4["SCP-058"].Torso end,                         "SCP-058")
+watchForRespawn(function() return s4["SCP-1350"].Main end,                         "SCP-1350")
+watchForRespawn(function() return s4["SCP-352-2"].HumanoidRootPart end,            "SCP-352-2")
+watchForRespawn(function() return s3["SCP-017"].HumanoidRootPart end,              "SCP-017")
+watchForRespawn(function() return s3["SCP-049"].HumanoidRootPart end,              "SCP-049")
+watchForRespawn(function() return s3["SCP-280"].HumanoidRootPart end,              "SCP-280")
+watchForRespawn(function() return s3["SCP-457"].HumanoidRootPart end,              "SCP-457")
+watchForRespawn(function() return s3["SCP-966"]["SCP-966-1"].HumanoidRootPart end, "SCP-966")
+watchForRespawn(function() return s3["SCP-966"]["SCP-966-2"].HumanoidRootPart end, "SCP-966")
+watchForRespawn(function() return s3["SCP-966"]["SCP-966-3"].HumanoidRootPart end, "SCP-966")
+watchForRespawn(function() return s3["SCP-966"]["SCP-966-4"].HumanoidRootPart end, "SCP-966")
+watchForRespawn(function() return s2["SCP-173"].HumanoidRootPart end,              "SCP-173")
+
+local function buildSpectateList()
+     spectateList = {}
+
+     -- add all NPC SCPs
+     local npcParts = {
+          {key = "SCP-058",   getPart = function() return s4["SCP-058"].Torso end},
+          {key = "SCP-1350",  getPart = function() return s4["SCP-1350"].Main end},
+          {key = "SCP-352-2", getPart = function() return s4["SCP-352-2"].HumanoidRootPart end},
+          {key = "SCP-017",   getPart = function() return s3["SCP-017"].HumanoidRootPart end},
+          {key = "SCP-049",   getPart = function() return s3["SCP-049"].HumanoidRootPart end},
+          {key = "SCP-280",   getPart = function() return s3["SCP-280"].HumanoidRootPart end},
+          {key = "SCP-457",   getPart = function() return s3["SCP-457"].HumanoidRootPart end},
+          {key = "SCP-966-1", getPart = function() return s3["SCP-966"]["SCP-966-1"].HumanoidRootPart end},
+          {key = "SCP-966-2", getPart = function() return s3["SCP-966"]["SCP-966-2"].HumanoidRootPart end},
+          {key = "SCP-966-3", getPart = function() return s3["SCP-966"]["SCP-966-3"].HumanoidRootPart end},
+          {key = "SCP-966-4", getPart = function() return s3["SCP-966"]["SCP-966-4"].HumanoidRootPart end},
+          {key = "SCP-173",   getPart = function() return s2["SCP-173"].HumanoidRootPart end},
+     }
+
+     for _, entry in ipairs(npcParts) do
+          local ok, part = pcall(entry.getPart)
+          if ok and part and part.Parent then
+               table.insert(spectateList, {key = entry.key, part = part})
+          end
+     end
+end
+
+local spectateLabel = nil
+
+local function createSpectateLabel()
+     if spectateLabel then spectateLabel:Destroy() end
+     local screenGui = game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Legend")
+     if not screenGui then return end
+
+     local label = Instance.new("ScreenGui")
+     label.Name = "ESP-SpectateLabel"
+     label.ResetOnSpawn = false
+     label.Parent = game.Players.LocalPlayer.PlayerGui
+
+     local frame = Instance.new("Frame", label)
+     frame.Size = UDim2.new(0, 220, 0, 40)
+     frame.Position = UDim2.new(0.5, -110, 0, 10)
+     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+     frame.BackgroundTransparency = 0.3
+     frame.BorderSizePixel = 0
+     local corner = Instance.new("UICorner", frame)
+     corner.CornerRadius = UDim.new(0, 8)
+
+     local text = Instance.new("TextLabel", frame)
+     text.Name = "SpectateText"
+     text.Size = UDim2.new(1, 0, 0.6, 0)
+     text.Position = UDim2.new(0, 0, 0, 4)
+     text.BackgroundTransparency = 1
+     text.Text = "SPECTATING: "
+     text.TextColor3 = Color3.fromRGB(255, 255, 255)
+     text.TextSize = 13
+     text.Font = Enum.Font.GothamSemibold
+
+     local hint = Instance.new("TextLabel", frame)
+     hint.Size = UDim2.new(1, 0, 0.4, 0)
+     hint.Position = UDim2.new(0, 0, 0.6, 0)
+     hint.BackgroundTransparency = 1
+     hint.Text = "[PgUp] Next   [PgDn] Previous   [Del] Exit"
+     hint.TextColor3 = Color3.fromRGB(200, 200, 200)
+     hint.TextSize = 10
+     hint.Font = Enum.Font.GothamBold  -- was GothamSemibold, Bold is thicker
+     hint.TextStrokeTransparency = 0.5  -- adds a dark outline around each letter
+     hint.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+     spectateLabel = label
+     return text
+end
+
+local spectateText = nil
+
+local function updateSpectateCamera()
+     if not spectating or #spectateList == 0 then return end
+     local entry = spectateList[spectateIndex]
+     if not entry or not entry.part or not entry.part.Parent then
+          spectateIndex = spectateIndex % #spectateList + 1
+          updateSpectateCamera()
+          return
+     end
+
+     -- use CameraSubject so the player can still move the camera freely
+     Camera.CameraType = Enum.CameraType.Custom
+     Camera.CameraSubject = entry.part
+
+     if spectateText then
+          local color = colors[getLegendKey(entry.key)] or Color3.fromRGB(255, 255, 255)
+          spectateText.Text = "SPECTATING: " .. entry.key
+          spectateText.TextColor3 = color
+     end
+end
+
+local function enterSpectate()
+     buildSpectateList()
+     if #spectateList == 0 then return end
+     spectating = true
+     spectateIndex = 1
+     originalCameraType = Camera.CameraType
+     originalCameraCFrame = Camera.CFrame
+     spectateText = createSpectateLabel()
+     updateSpectateCamera()
+end
+
+local function exitSpectate()
+     spectating = false
+     Camera.CameraType = originalCameraType or Enum.CameraType.Custom
+     local char = game.Players.LocalPlayer.Character
+     Camera.CameraSubject = char and (char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("HumanoidRootPart")) or Camera.CameraSubject
+     if spectateLabel then
+          spectateLabel:Destroy()
+          spectateLabel = nil
+          spectateText = nil
+     end
+end
+
+
+
 
 UserInputService.InputBegan:Connect(function(input)
      if input.KeyCode == Enum.KeyCode.F5 then
@@ -1463,6 +1688,25 @@ UserInputService.InputBegan:Connect(function(input)
           local settings = game.Players.LocalPlayer.PlayerGui:FindFirstChild("ESP-Settings")
           if settings then
                settings.Enabled = not settings.Enabled
+          end
+
+     elseif input.KeyCode == Enum.KeyCode.PageUp then
+          if not spectating then
+               enterSpectate()
+          else
+               spectateIndex = spectateIndex % #spectateList + 1
+               updateSpectateCamera()
+          end
+
+     elseif input.KeyCode == Enum.KeyCode.PageDown then
+          if spectating then
+               spectateIndex = ((spectateIndex - 2) % #spectateList) + 1
+               updateSpectateCamera()
+          end
+
+     elseif input.KeyCode == Enum.KeyCode.Delete then
+          if spectating then
+               exitSpectate()
           end
      end
 end)

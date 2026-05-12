@@ -72,6 +72,7 @@ local colors = {
 	 ["SCP-914-X"] = Color3.fromRGB(255, 50, 50),
       ["SCP-610"] = Color3.fromRGB(234, 184, 146),
       ["SCP-049-2"] = Color3.fromRGB(0, 150, 100),
+      ["SCP-999"] = Color3.fromRGB(255, 200, 0), 
 }
 
 local instanceLocationNames = {
@@ -140,6 +141,7 @@ local containmentZones = {
      ["SCP-352-2"]= {pos = Vector3.new(-213.3, 390.1, 859.4),  radius = 60},
      ["SCP-1350"] = {pos = Vector3.new(-214.4, 380.1, 1009.8), radius = 60},
      ["SCP-966"]  = nil, -- fill in once you have position
+     ["SCP-999"]  = {pos = Vector3.new(-201.752, 402.13, 59.914), radius =60}
 }
 
 local breachedAlerts = {}  -- tracks which SCPs are currently breached
@@ -1225,6 +1227,7 @@ local legendOrder = {
      "SCP-610",
      "SCP-966",
      "SCP-914-X",
+     "SCP-999",
      "SCP-1155",
      "SCP-1350",
 }
@@ -1354,11 +1357,14 @@ local function createLegend()
      end
 end
 
+
+
 local function startContainmentMonitor()
      RunService.Heartbeat:Connect(function()
           if not alertVisualEnabled then return end
 
           local npcChecks = {
+               {key = "SCP-999",   getPart = function() return s2["SCP-999"]:FindFirstChild("HumanoidRootPart") end},
                {key = "SCP-173",   getPart = function() return s2["SCP-173"]:FindFirstChild("HumanoidRootPart") end},
                {key = "SCP-017",   getPart = function() return s3["SCP-017"]:FindFirstChild("HumanoidRootPart") end},
                {key = "SCP-049",   getPart = function() return s3["SCP-049"]:FindFirstChild("HumanoidRootPart") end},
@@ -1393,6 +1399,8 @@ local function startContainmentMonitor()
           end
      end)
 end
+
+
 
 local function tryAddUi(getPartFunc, fallbackLegendKey)
      local success, part = pcall(getPartFunc)
@@ -1528,6 +1536,7 @@ local function createMinimap()
 end
 createMinimap()
 --]]
+watchForRespawn(function() return s2["SCP-999"].HumanoidRootPart end, "SCP-999")
 watchForRespawn(function() return s4["SCP-058"].Torso end,                         "SCP-058")
 watchForRespawn(function() return s4["SCP-1350"].Main end,                         "SCP-1350")
 watchForRespawn(function() return s4["SCP-352-2"].HumanoidRootPart end,            "SCP-352-2")
@@ -1546,6 +1555,7 @@ local function buildSpectateList()
 
      -- add all NPC SCPs
      local npcParts = {
+          {key = "SCP-999",   getPart = function() return s2["SCP-999"].HumanoidRootPart end},
           {key = "SCP-058",   getPart = function() return s4["SCP-058"].Torso end},
           {key = "SCP-1350",  getPart = function() return s4["SCP-1350"].Main end},
           {key = "SCP-352-2", getPart = function() return s4["SCP-352-2"].HumanoidRootPart end},
@@ -1710,3 +1720,4 @@ UserInputService.InputBegan:Connect(function(input)
           end
      end
 end)
+

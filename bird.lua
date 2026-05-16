@@ -1590,7 +1590,7 @@ local function buildSpectateList()
           {key = "SCP-966-3", getPart = function() return s3["SCP-966"]["SCP-966-3"].HumanoidRootPart end},
           {key = "SCP-966-4", getPart = function() return s3["SCP-966"]["SCP-966-4"].HumanoidRootPart end},
           {key = "SCP-173",   getPart = function() return s2["SCP-173"].HumanoidRootPart end},
-          {key = "SCP-999",   getPart = function() return s3["SCP-999"].HumanoidRootPart end},
+          {key = "SCP-999",   getPart = function() return s2["SCP-999"].HumanoidRootPart end},
      }
 
      for _, entry in ipairs(npcParts) do

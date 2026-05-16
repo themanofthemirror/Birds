@@ -140,7 +140,7 @@ local containmentZones = {
      ["SCP-058"]  = {pos = Vector3.new(-2.3,   404.4, 929.1),  radius = 60},
      ["SCP-352-2"]= {pos = Vector3.new(-213.3, 390.1, 859.4),  radius = 60},
      ["SCP-1350"] = {pos = Vector3.new(-214.4, 380.1, 1009.8), radius = 60},
-     ["SCP-966"]  = nil, -- fill in once you have position
+     ["SCP-966"]  = {pos = Vector3.new(-34.58, 391.458, 579.143), radius = 60}, -- update pos to actual 966 CZ
      ["SCP-999"]  = {pos = Vector3.new(-201.752, 402.13, 59.914), radius =60}
 }
 
@@ -1373,9 +1373,6 @@ local function startContainmentMonitor()
                {key = "SCP-058",   getPart = function() return s4["SCP-058"]:FindFirstChild("Torso") end},
                {key = "SCP-352-2", getPart = function() return s4["SCP-352-2"]:FindFirstChild("HumanoidRootPart") end},
                {key = "SCP-1350",  getPart = function() return s4["SCP-1350"]:FindFirstChild("Main") end},
-               {key = "SCP-966",   getPart = function()
-                    return s3["SCP-966"]["SCP-966-1"]:FindFirstChild("HumanoidRootPart")
-               end},
           }
 
           for _, entry in ipairs(npcChecks) do
@@ -1396,7 +1393,33 @@ local function startContainmentMonitor()
                elseif not isBreached and breachedAlerts[entry.key] then
                     flashLabel(entry.key, false)
                end
+
           end
+
+     local zone966 = containmentZones["SCP-966"]
+     if zone966 then
+          local instances = {"SCP-966-1", "SCP-966-2", "SCP-966-3", "SCP-966-4"}
+          local anyBreached = false
+
+          for _, name in ipairs(instances) do
+               local ok, part = pcall(function()
+                    return s3["SCP-966"][name]:FindFirstChild("HumanoidRootPart")
+               end)
+               if ok and part then
+                    local dist = (part.Position - zone966.pos).Magnitude
+                    if dist > zone966.radius then
+                         anyBreached = true
+                         break
+                    end
+               end
+          end
+
+          if anyBreached and not breachedAlerts["SCP-966"] then
+               flashLabel("SCP-966", true)
+          elseif not anyBreached and breachedAlerts["SCP-966"] then
+               flashLabel("SCP-966", false)
+          end
+     end
      end)
 end
 
@@ -1553,9 +1576,8 @@ watchForRespawn(function() return s2["SCP-173"].HumanoidRootPart end,           
 local function buildSpectateList()
      spectateList = {}
 
-     -- add all NPC SCPs
+     -- NPC SCPs
      local npcParts = {
-          {key = "SCP-999",   getPart = function() return s2["SCP-999"].HumanoidRootPart end},
           {key = "SCP-058",   getPart = function() return s4["SCP-058"].Torso end},
           {key = "SCP-1350",  getPart = function() return s4["SCP-1350"].Main end},
           {key = "SCP-352-2", getPart = function() return s4["SCP-352-2"].HumanoidRootPart end},
@@ -1568,12 +1590,45 @@ local function buildSpectateList()
           {key = "SCP-966-3", getPart = function() return s3["SCP-966"]["SCP-966-3"].HumanoidRootPart end},
           {key = "SCP-966-4", getPart = function() return s3["SCP-966"]["SCP-966-4"].HumanoidRootPart end},
           {key = "SCP-173",   getPart = function() return s2["SCP-173"].HumanoidRootPart end},
+          {key = "SCP-999",   getPart = function() return s3["SCP-999"].HumanoidRootPart end},
      }
 
      for _, entry in ipairs(npcParts) do
           local ok, part = pcall(entry.getPart)
           if ok and part and part.Parent then
                table.insert(spectateList, {key = entry.key, part = part})
+          end
+     end
+
+     -- player SCPs: only add if they are currently transformed
+     local Players = game:GetService("Players")
+     for _, player in ipairs(Players:GetPlayers()) do
+          local char = player.Character
+          if not char then continue end
+          local torso = char:FindFirstChild("Torso")
+          if not torso then continue end
+
+          -- check 914-X
+          local isBlack = torso.Color == Color3.new(0, 0, 0)
+          local noShirt = char:FindFirstChildOfClass("Shirt") == nil
+          local noPants = char:FindFirstChildOfClass("Pants") == nil
+          local noAccessory = char:FindFirstChildOfClass("Accessory") == nil
+          if isBlack and noShirt and noPants and noAccessory then
+               table.insert(spectateList, {key = "SCP-914-X [" .. player.Name .. "]", part = torso})
+          end
+
+          -- check 610
+          local hasMorph = char:FindFirstChild("Morph") ~= nil
+          local isOrange = torso.Color == Color3.fromRGB(234, 184, 146)
+          if hasMorph and isOrange then
+               table.insert(spectateList, {key = "SCP-610 [" .. player.Name .. "]", part = torso})
+          end
+
+          -- check 049-2
+          local hasParticle = torso:FindFirstChildOfClass("ParticleEmitter") ~= nil
+          local hasSound = torso:FindFirstChildOfClass("Sound") ~= nil
+          if hasParticle and hasSound then
+               table.insert(spectateList, {key = "SCP-049-2 [" .. player.Name .. "]", part = torso})
           end
      end
 end
@@ -1639,9 +1694,10 @@ local function updateSpectateCamera()
      Camera.CameraSubject = entry.part
 
      if spectateText then
-          local color = colors[getLegendKey(entry.key)] or Color3.fromRGB(255, 255, 255)
-          spectateText.Text = "SPECTATING: " .. entry.key
-          spectateText.TextColor3 = color
+     local baseKey = entry.key:match("^(SCP%-%d+%S*)") or entry.key
+     local color = colors[getLegendKey(baseKey)] or Color3.fromRGB(255, 255, 255)
+     spectateText.Text = "SPECTATING: " .. entry.key
+     spectateText.TextColor3 = color
      end
 end
 
